@@ -157,7 +157,7 @@ textarea{display:block;width:100%;background:var(--inset);color:var(--text);bord
 <script>
 "use strict";
 // ---------- v0.6 config: fill in the GTM ID to switch on analytics (only loads when the ConsentEase snippet is in <head>)
-const CFG={version:"0.6.0-beta",gtm:""};
+const CFG={version:"0.6.0-beta",gtm:"GTM-56HVV4B7"};
 window.dataLayer=window.dataLayer||[];
 (()=>{if(!CFG.gtm)return;if(!document.querySelector('script[src*="consentease"]')){console.warn("Digby: GTM not loaded, ConsentEase snippet missing (fail closed)");return}
  window.dataLayer.push({"gtm.start":Date.now(),event:"gtm.js"});const g=document.createElement("script");g.async=true;g.src="https://www.googletagmanager.com/gtm.js?id="+encodeURIComponent(CFG.gtm);document.head.appendChild(g)})();
