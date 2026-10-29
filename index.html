@@ -112,6 +112,7 @@ button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:tra
 @keyframes cflash{0%{box-shadow:inset 0 0 0 2px var(--xp),0 0 18px #5fbf4a88}}
 .mhead{display:flex;flex-direction:column;gap:4px;padding:6px 0 10px}
 .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mseason{padding-top:18px}
 .slotm{min-height:104px;border:0;border-radius:var(--r);padding:8px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:var(--layer);box-shadow:inset 0 0 0 2px var(--rar),var(--sh);color:var(--text);font-size:11px;line-height:1.25;text-align:center;position:relative;overflow:hidden}
 .slotm::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:linear-gradient(var(--dirt) 0 2px,var(--clay) 2px 4px,var(--rock) 4px)}
 .slotm.unk{background:var(--inset);box-shadow:inset 0 0 0 1px var(--line2);color:var(--text3);cursor:default}
@@ -178,7 +179,7 @@ textarea{display:block;width:100%;background:var(--inset);color:var(--text);bord
 <script>
 "use strict";
 // ---------- v0.6 config: fill in the GTM ID to switch on analytics (only loads when the ConsentEase snippet is in <head>)
-const CFG={version:"0.6.0-beta",gtm:"GTM-56HVV4B7"};
+const CFG={version:"0.6.1-beta",gtm:"GTM-56HVV4B7"};
 window.dataLayer=window.dataLayer||[];
 // Basic Consent Mode: do not request GTM until ConsentEase grants analytics_storage.
 // The complete ConsentEase snippet above sets defaults synchronously; this bridge observes its later consent updates.
@@ -391,6 +392,10 @@ const FINDS=[ // depth in mm
  [6371000000,"THE CORE","Legendary","The center of the Earth. It glows like a heart."],
 ];
 const BONUS={Common:50,Uncommon:100,Rare:250,Legendary:1000};
+// seasonal relics: only findable on their day (local date). Kept outside FINDS so core/museum totals stay the same.
+const SEASONAL=[{id:"Halloween pumpkin",rar:"Rare",m:9,d:31,label:"31 October",col:"#ff8a2f",note:"It knocked first. Only findable on 31 October."}];
+function seasonNow(){const n=new Date();return SEASONAL.find(e=>n.getMonth()===e.m&&n.getDate()===e.d)||null}
+function relicCount(){return S.museum.filter(x=>FINDS.some(f=>f[1]===x)).length}
 const CORE=6371000000;
 const EVOS=[ // at mm, name, colors, power multiplier, base auto (power/s)
  {at:0,name:"DIGBY",body:"#ffc828",w:1,drills:1,auto:0,mult:1,perk:"Tap to dig"},
@@ -445,7 +450,12 @@ function foundRelic(f,quiet){track("relic",{relic:f[1],rarity:f[2],offline:!!qui
  toast(f[2]==="Legendary"?"LEGENDARY FIND!":"FOUND SOMETHING!",f[1]+" · +"+b+" XP",f[2]==="Legendary"?"#ff78c8":"#ffd75a",2.4);tone(1046,.3,.09,"triangle");tone(1318,.4,.08,"triangle",.12);if(f[2]==="Legendary")tone(1568,.6,.08,"triangle",.3);
  if(f[1]==="THE CORE")coreReached()}
 let offFinds=[];
-function moveMM(mm,quiet){if(evoAnim||S.mm>=CORE||!(mm>0))return 0;const tgt=Math.min(CORE,S.mm+mm);
+function foundSeasonal(quiet){const e=SEASONAL.find(x=>x.id===(S.evt&&S.evt.id));delete S.evt;if(!e||S.museum.includes(e.id))return;
+ S.museum.push(e.id);S.seasonFound=Object.assign({},S.seasonFound,{[e.id]:Date.now()});const b=BONUS[e.rar];track("relic",{relic:e.id,rarity:e.rar,offline:!!quiet,seasonal:true});addXP(b);dailyProg("find",1);
+ if(quiet){offFinds.push(e.id);return}
+ toast("HAPPY HALLOWEEN!",e.id+" · +"+b+" XP",e.col,2.8);shake=8;tone(392,.25,.09,"triangle");tone(466,.25,.08,"triangle",.12);tone(523,.3,.08,"triangle",.24);tone(784,.5,.08,"triangle",.4);save()}
+function moveMM(mm,quiet){const r=moveMM0(mm,quiet);if(S.evt&&S.mm>=S.evt.at)foundSeasonal(quiet);return r}
+function moveMM0(mm,quiet){if(evoAnim||S.mm>=CORE||!(mm>0))return 0;const tgt=Math.min(CORE,S.mm+mm);
  for(const f of FINDS){if(S.mm<f[0]&&tgt>=f[0]&&!S.found.includes(f[1])){const d=f[0]-S.mm;S.mm=f[0];addXP(d);dailyProg("dig",d);foundRelic(f,quiet);checkEvo();if(!quiet){save();return d}if(evoAnim)return d}}
  const d=tgt-S.mm;S.mm=tgt;addXP(d);dailyProg("dig",d);checkEvo();return d}
 function digEffort(e,quiet){let mm=0;const n=quiet?40:1;for(let i=0;i<n;i++){if(S.mm>=CORE||evoAnim)break;const de=e/n;S.dirt+=de;mm+=moveMM(de/HARD(S.mm),quiet)}return mm}
@@ -483,6 +493,7 @@ const PAL={Y:"#f5c542",y:"#c9952a",B:"#8d5634",P:"#ff5fa2",H:"#ffd1e6",C:"#4fe0f
 const ICONS={
  pick:["..YYYYY..",".Yy.B.yY.","Y...B...Y","....B....","....B....","....B....","....B....","....B...."],
  battery:["PPPPPPPP..","P......PP.","P.H.H..PPP","P.HHH..PPP","P..H...PP.","PPPPPPPP.."],
+ pumpkin:["....G....","...GG....",".OOOOOOO.","OOCOOOCOO","OOOOOOOOO","OCOCOCOCO",".OOOOOOO."],
  relic:["..CCCCC..",".CWCCCCC.","CCCCCCCCC",".CCCCCCC.","..CCCCC..","...CCC...","....C...."],
  book:["YYYYYYY.","Y.....YD","Y.DDD.YD","Y.....YD","Y.DDD.YD","Y.....YD","YYYYYYYD"],
  ore:["..DDD..",".DLDDD.","DDDDLDD","DDLDDDD",".DDDDD."],
@@ -554,7 +565,7 @@ function renderUpg(){const b=$("sheetBody");const keep=document.activeElement&&d
  if(keepId){const nb=b.querySelector(`[data-id="${keepId}"] .buy`);(nb&&!nb.disabled?nb:$("sheetX")).focus({preventScroll:true})}}
 // museum
 let musSel=null;
-function renderMus(){const b=$("sheetBody");b.innerHTML="";S.seenFinds=S.museum.length;save();const n=S.museum.length;
+function renderMus(){const b=$("sheetBody");b.innerHTML="";S.seenFinds=S.museum.length;save();const n=relicCount();
  const h=document.createElement("div");h.className="mhead";h.innerHTML=`<span class="cnt"></span><span class="tip">${n?"Tap a relic to read its card.":"Nothing here yet. The first relic is only 12.2 cm down."}</span>`;b.appendChild(h);px(h.querySelector(".cnt"),`${n} / ${FINDS.length} RELICS`,2,"#f5c542");
  const det=document.createElement("div");det.className="detail";det.id="mDetail";det.hidden=true;det.setAttribute("aria-live","polite");b.appendChild(det);
  const g=document.createElement("div");g.className="mgrid";
@@ -562,7 +573,17 @@ function renderMus(){const b=$("sheetBody");b.innerHTML="";S.seenFinds=S.museum.
   if(has){s.style.setProperty("--layer",layerBg(f[0]));s.style.setProperty("--rar",RAR[f[2]]);s.innerHTML=`${f[1].includes("BATTERY")?icon("battery",3):icon("relic",3,RAR[f[2]])}<span class="nm">${f[1]}</span><span class="rl" style="color:${RAR[f[2]]}">${f[2]}</span>`;
    s.setAttribute("aria-label",`${f[1]}. ${f[2]}. Found at ${dep}.`);s.setAttribute("aria-pressed",String(musSel===i));s.onclick=()=>{musSel=i;g.querySelectorAll(".slotm").forEach(x=>x.hasAttribute("aria-pressed")&&x.setAttribute("aria-pressed","false"));s.setAttribute("aria-pressed","true");showDetail()}}
   else{s.innerHTML=`<span class="q"></span><span class="nm">${dep}</span>`;px(s.querySelector(".q"),"?",4,"#6f6570");s.setAttribute("aria-label",`Undiscovered relic at ${dep}`);s.setAttribute("aria-disabled","true")}
-  g.appendChild(s)});b.appendChild(g);if(musSel!==null&&S.museum.includes(FINDS[musSel][1]))showDetail()}
+  g.appendChild(s)});b.appendChild(g);renderSeasonal(b);if(typeof musSel==="number"&&S.museum.includes(FINDS[musSel][1]))showDetail();else if(typeof musSel==="string")showSDetail(musSel)}
+function renderSeasonal(b){const live=seasonNow();const list=SEASONAL.filter(e=>S.museum.includes(e.id)||live===e);if(!list.length)return;
+ const h=document.createElement("div");h.className="mhead mseason";h.innerHTML=`<span class="cnt"></span><span class="tip">Seasonal relics. They only show up on their day.</span>`;b.appendChild(h);px(h.querySelector(".cnt"),"SEASONAL",2,"#ff8a2f");
+ const g=document.createElement("div");g.className="mgrid";
+ list.forEach(e=>{const has=S.museum.includes(e.id);const s=document.createElement("button");s.className="slotm"+(has?"":" unk");
+  if(has){s.style.setProperty("--layer","#2a1d22");s.style.setProperty("--rar",e.col);s.innerHTML=`${icon("pumpkin",3)}<span class="nm">${e.id}</span><span class="rl" style="color:${e.col}">Seasonal</span>`;
+   s.setAttribute("aria-label",`${e.id}. Seasonal relic, ${e.label}.`);s.setAttribute("aria-pressed",String(musSel===e.id));s.onclick=()=>{musSel=e.id;document.querySelectorAll(".slotm").forEach(x=>x.hasAttribute("aria-pressed")&&x.setAttribute("aria-pressed","false"));s.setAttribute("aria-pressed","true");showSDetail(e.id)}}
+  else{s.innerHTML=`<span class="q"></span><span class="nm">Today only</span>`;px(s.querySelector(".q"),"?",4,e.col);s.setAttribute("aria-label",`Seasonal relic, findable today only`);s.setAttribute("aria-disabled","true")}
+  g.appendChild(s)});b.appendChild(g)}
+function showSDetail(id){const e=SEASONAL.find(x=>x.id===id),d=$("mDetail");if(!e||!d)return;d.hidden=false;d.style.setProperty("--rar",e.col);
+ d.innerHTML=`<div>${icon("pumpkin",5)}</div><div><div class="dn">${e.id}</div><div class="dm"><span style="color:${e.col};font-weight:700">Seasonal · ${e.rar}</span> · ${e.label} · +${BONUS[e.rar]} XP</div><div class="df">${e.note}</div></div>`}
 function showDetail(){const f=FINDS[musSel],d=$("mDetail");d.hidden=false;d.style.setProperty("--rar",RAR[f[2]]);
  d.innerHTML=`<div>${f[1].includes("BATTERY")?icon("battery",5):icon("relic",5,RAR[f[2]])}</div><div><div class="dn">${f[1]}</div><div class="dm"><span style="color:${RAR[f[2]]};font-weight:700">${f[2]}</span> · ${fmtD(f[0]).toLowerCase()} · +${BONUS[f[2]]} XP</div><div class="df">${f[3]}</div></div>`}
 // journal
@@ -575,7 +596,7 @@ function renderJrn(){const b=$("sheetBody");const L=lv(),nx=XPT[Math.min(98,L)],
  <dt>Next goal</dt><dd>${ne?`${ne.name} at ${fmtD(ne.at).toLowerCase()} · <b>${fmtD(ne.at-S.mm).toLowerCase()}</b> to go`:S.mm>=CORE?"<b>Core reached!</b>":`THE CORE at 6,371 km · <b>${fmtD(CORE-S.mm).toLowerCase()}</b> to go`}</dd>
  <dt>Dirt XP</dt><dd>Lv ${L} · ${fmtN(S.xp)} XP${L<99?` · ${fmtN(nx-S.xp)} to Lv ${L+1}`:""}</dd>
  <dt>Next unlock</dt><dd>${nextUnlock()}</dd>
- <dt>Relics</dt><dd>${S.museum.length} / ${FINDS.length}</dd>
+ <dt>Relics</dt><dd>${relicCount()} / ${FINDS.length}</dd>
  <dt>Rock</dt><dd>${biomeOf(S.mm)[1]} · hardness x${fmtMult(HARD(S.mm))}</dd>
  <dt>Speed</dt><dd>${fmtGain(mmRate(autoRate()))}/s auto · ${fmtGain(mmRate(tapPower()))}/tap</dd>${S.shards?`
  <dt>Core shards</dt><dd>${S.shards} · power x${1+S.shards}</dd>`:""}
@@ -664,6 +685,7 @@ function drawGround(){const pm=PXMM(),cell=Math.max(6,Math.round(10*(W/360))),to
  for(const [mm,lab] of BIOMES.slice(1).map(b=>[b[0],fmtD(b[0])+" · "+(b[0]===12200000?"Kola record":b[0]===35000000?"The Moho":b[1])])){const y=(mm-top)*pm;if(y>0&&y<H){cx.fillStyle="#fff8";cx.fillRect(0,y,W,2);cxPx(lab,8,y-14,2,"#ffffff","l")}}
  // upcoming find glints
  for(const f of FINDS){if(S.found.includes(f[1]))continue;const y=(f[0]-top)*pm+robotY()*0+0;const yy=(f[0]-top)*pm;if(yy>robotY()&&yy<H){const a=.35+.35*Math.sin(Date.now()/300+f[0]);cx.fillStyle=f[2]==="Legendary"?`rgba(255,90,170,${a})`:`rgba(255,230,140,${a*.6})`;cx.beginPath();cx.arc(W/2+(hash(f[0],7)-.5)*W*.12,yy,f[2]==="Legendary"?14:6,0,7);cx.fill()}}
+ if(S.evt){const yy=(S.evt.at-top)*pm;if(yy>robotY()&&yy<H){const a=.45+.35*Math.sin(Date.now()/220);cx.fillStyle=`rgba(255,138,47,${a})`;cx.beginPath();cx.arc(W/2+W*.05,yy,12,0,7);cx.fill()}}
 
 }
 function rr(x,y,w,h,c){cx.fillStyle=c;cx.fillRect(x,y,w,h)}
@@ -738,10 +760,12 @@ resize();let offMM=0;
 (()=>{const away=Math.min(8*3600,(Date.now()-(S.last||Date.now()))/1000);const a=autoRate();if(away>60&&a>0){offMM=digEffort(away*a*.5,true)}})();
 for(const f of FINDS)if(f[0]<S.mm&&!S.found.includes(f[1]))foundRelic(f,true);
 if(S.seenFinds===undefined)S.seenFinds=S.museum.length;
+const EVT=seasonNow();if(S.evt&&(!EVT||S.evt.id!==EVT.id||S.museum.includes(S.evt.id)))delete S.evt;
+if(EVT&&!S.museum.includes(EVT.id)&&!S.evt&&S.mm<CORE)S.evt={id:EVT.id,at:Math.min(CORE,S.mm+30)};
 document.addEventListener("pointerup",()=>{try{if(AC&&AC.state!=="running")AC.resume()}catch(e){}});
 const introOpts=()=>({depth:DigbyIntro.fmt(S.mm),away:offMM,ac,acLive:()=>!!AC,muted:S.muted,reduce:matchMedia("(prefers-reduced-motion: reduce)").matches});
 function betaNote(){if(S.betaSeen)return;S.betaSeen=true;save();setTimeout(async()=>{const ok=await ask({title:"WELCOME TO THE BETA",text:"Digby is still being built: layers, relics and features keep changing. Your progress is saved on this device, and a save code in the Journal lets you move it.",yes:"Let's dig",no:"Privacy info"});if(!ok)window.open("privacy.html","_blank","noopener")},S.mm===0?2800:600)}
-function bootToasts(intro){betaNote();if(offFinds.length)setTimeout(()=>toast("WHILE YOU WERE AWAY",offFinds.length+" new relic"+(offFinds.length>1?"s":"")+": "+offFinds.slice(-2).join(", "),"#ffd75a",3.2),intro?0:3200);if(offMM>0&&!intro)toast("WELCOME BACK","While you were away Digby dug "+fmtD(offMM).toLowerCase(),"#4fe0f0",3);else if(S.mm===0)toast("DIGBY","Tap anywhere to help him dig to the core","#f5c542",2.6)}
+function bootToasts(intro){betaNote();if(S.evt)setTimeout(()=>toast("HAPPY HALLOWEEN","Something is knocking just below Digby...","#ff8a2f",3.2),intro?400:1200);if(offFinds.length)setTimeout(()=>toast("WHILE YOU WERE AWAY",offFinds.length+" new relic"+(offFinds.length>1?"s":"")+": "+offFinds.slice(-2).join(", "),"#ffd75a",3.2),intro?0:3200);if(offMM>0&&!intro)toast("WELCOME BACK","While you were away Digby dug "+fmtD(offMM).toLowerCase(),"#4fe0f0",3);else if(S.mm===0)toast("DIGBY","Tap anywhere to help him dig to the core","#f5c542",2.6)}
 syncSnd();hud();
 (()=>{const p=S.introPref||"auto";const mode=p==="off"?null:p==="full"?"full":(S.seenIntro?"short":"full");
  track("open",{returning:!!S.seenIntro,intro_mode:mode||"off"});
