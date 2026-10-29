@@ -3,6 +3,27 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#120e14">
 <title>Digby · Dig to the Core (beta)</title>
+<!-- ConsentEase: paste this whole block as the FIRST element in <head>, above Google Tag Manager / gtag.js. Do not add it through a GTM Custom HTML tag. Keep the data-cfasync, data-no-optimize, data-no-defer and nowprocket attributes: they stop caching plugins from delaying the banner. -->
+<script data-cfasync="false" data-no-optimize="1" data-no-defer="1" nowprocket>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('consent', 'default', {
+  'ad_storage': 'denied',
+  'ad_user_data': 'denied',
+  'ad_personalization': 'denied',
+  'analytics_storage': 'denied',
+  'functionality_storage': 'denied',
+  'personalization_storage': 'denied',
+  'security_storage': 'granted',
+  'wait_for_update': 500
+});
+gtag('set', 'ads_data_redaction', true);
+gtag('set', 'url_passthrough', true);
+window.uetq = window.uetq || [];
+window.uetq.push('consent', 'default', {'ad_storage': 'denied'});
+</script>
+<!-- ConsentEase: consent banner (keep it directly below the block above) -->
+<script data-cfasync="false" data-no-optimize="1" data-no-defer="1" nowprocket src="https://consentease.io/api/consent/b3fmjbtykhn5/script.js" async></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'><rect width='256' height='256' rx='48' fill='%231b1b24'/><rect y='176' width='256' height='80' fill='%237a4a2c'/><rect y='176' width='256' height='8' fill='%235c3720'/><polygon points='104,176 152,176 128,236' fill='%23f5c542'/><polygon points='110,192 146,186 142,196 114,202' fill='%231b1b24'/><g class='h' transform='translate(128,118) scale(1.65)'><g><rect x='-3' y='-46' width='6' height='18' fill='%232a2a36'/><circle class='ant' cx='0' cy='-50' r='7' fill='%23ff5fa2'/><rect x='-46' y='-30' width='92' height='62' rx='10' fill='%23f5c542' stroke='%231b1b24' stroke-width='6'/><rect x='-34' y='-18' width='68' height='34' rx='6' fill='%231b1b24'/><g class='eyes'><rect x='-24' y='-10' width='16' height='16' rx='3' fill='%234fe0f0'/><rect x='8' y='-10' width='16' height='16' rx='3' fill='%234fe0f0'/></g><path d='M30 20 l12 0 l-6 9 z' fill='%23ff5fa2'/></g></g></svg>">
 <style>
 :root{--canvas:#120e14;--raised:#1d1722;--overlay:#251d2c;--inset:#0e0b12;--line:rgba(255,240,220,.08);--line2:rgba(255,240,220,.16);--text:#f3eee8;--text2:#cdbfb3;--text3:#9a8c82;--dig:#f5c542;--ink:#1b1b24;--boost:#ff5fa2;--xp:#5fbf4a;--info:#4fe0f0;--danger:#ff6b57;--dirt:#7a4a2c;--clay:#a8683f;--rock:#4a4a58;--grass:#5fbf4a;--r:4px;--ctl:44px;--sh:0 3px 0 #000;--ease:cubic-bezier(.2,.8,.2,1)}
@@ -159,8 +180,31 @@ textarea{display:block;width:100%;background:var(--inset);color:var(--text);bord
 // ---------- v0.6 config: fill in the GTM ID to switch on analytics (only loads when the ConsentEase snippet is in <head>)
 const CFG={version:"0.6.0-beta",gtm:"GTM-56HVV4B7"};
 window.dataLayer=window.dataLayer||[];
-(()=>{if(!CFG.gtm)return;if(!document.querySelector('script[src*="consentease"]')){console.warn("Digby: GTM not loaded, ConsentEase snippet missing (fail closed)");return}
- window.dataLayer.push({"gtm.start":Date.now(),event:"gtm.js"});const g=document.createElement("script");g.async=true;g.src="https://www.googletagmanager.com/gtm.js?id="+encodeURIComponent(CFG.gtm);document.head.appendChild(g)})();
+// Basic Consent Mode: do not request GTM until ConsentEase grants analytics_storage.
+// The complete ConsentEase snippet above sets defaults synchronously; this bridge observes its later consent updates.
+let analyticsGranted=false,gtmLoaded=false,pendingOpen=null,openLogged=false;
+function startDigbyGTM(){
+ if(!CFG.gtm||!analyticsGranted||gtmLoaded)return;
+ if(!document.querySelector('script[src*="consentease"]')){console.warn("Digby: GTM not loaded, ConsentEase snippet missing (fail closed)");return}
+ gtmLoaded=true;
+ window.dataLayer.push({"gtm.start":Date.now(),event:"gtm.js"});
+ const g=document.createElement("script");g.async=true;g.src="https://www.googletagmanager.com/gtm.js?id="+encodeURIComponent(CFG.gtm);document.head.appendChild(g);
+ // The page-open event is held in memory until consent; send it once, after GTM's start event.
+ if(pendingOpen&&!openLogged){openLogged=true;window.dataLayer.push(pendingOpen)}
+}
+function readDigbyConsent(item){
+ if(!item||item[0]!=="consent"||item[1]!=="update"||!item[2]||!Object.prototype.hasOwnProperty.call(item[2],"analytics_storage"))return;
+ analyticsGranted=item[2].analytics_storage==="granted";
+ if(analyticsGranted)startDigbyGTM();
+}
+(()=>{
+ if(!CFG.gtm)return;
+ if(!document.querySelector('script[src*="consentease"]')){console.warn("Digby: GTM not loaded, ConsentEase snippet missing (fail closed)");return}
+ const dl=window.dataLayer,originalPush=dl.push;
+ dl.push=function(...items){const result=originalPush.apply(this,items);for(const item of items)readDigbyConsent(item);return result};
+ // Catch a stored consent choice that ConsentEase may have queued before this observer was installed.
+ for(const item of dl)readDigbyConsent(item);
+})();
 // ---------- v0.3 intro (canvas + WebAudio synth, no assets)
 const DigbyIntro=(()=>{const W=360,H=640;let MODE='full',INFO={depth:'0.0 CM',away:0},HOLD=false,CLK=0,cv,x,SC=1,DPR=1;
 const fmt=mm=>mm<1000?(mm/10).toFixed(1)+' CM':(mm/1000).toFixed(2)+' M';
@@ -286,7 +330,11 @@ return{play,fmt}})();
 
 // ---------- analytics events (dataLayer -> GTM -> GA4). Add #debug to the URL to see them in the console.
 function track(ev,p){let base={};try{base={game_version:CFG.version,player_form:EVOS[S.evo].name,player_level:lvlOf(S.xp),depth_m:Math.round(S.mm/100)/10,core_shards:S.shards||0}}catch(e){}
- const d=Object.assign({event:"digby_"+ev},base,p||{});window.dataLayer.push(d);if(location.hash==="#debug")console.log("[track]",d)}
+ const d=Object.assign({event:"digby_"+ev},base,p||{});
+ if(ev==="open")pendingOpen=d;
+ if(!CFG.gtm||!analyticsGranted){if(location.hash==="#debug")console.log("[track withheld until analytics consent]",d);return}
+ if(ev==="open")openLogged=true;
+ window.dataLayer.push(d);if(location.hash==="#debug")console.log("[track]",d)}
 let sessTaps=0,sessMM=0,sessStart=Date.now();
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&(sessTaps||sessMM)){track("session",{taps:sessTaps,mm_dug:Math.round(sessMM),seconds:Math.round((Date.now()-sessStart)/1000)});sessTaps=0;sessMM=0;sessStart=Date.now()}else if(document.visibilityState==="visible")sessStart=Date.now()});
 const MILESTONES=[1e3,1e4,1e5,1e6,1.22e7,3.5e7,6.6e8,2.89e9,5.15e9,6371000000];
