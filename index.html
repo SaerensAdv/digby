@@ -179,7 +179,7 @@ textarea{display:block;width:100%;background:var(--inset);color:var(--text);bord
 <script>
 "use strict";
 // ---------- v0.6 config: fill in the GTM ID to switch on analytics (only loads when the ConsentEase snippet is in <head>)
-const CFG={version:"0.6.1-beta",gtm:"GTM-56HVV4B7"};
+const CFG={version:"0.6.2-beta",gtm:"GTM-56HVV4B7"};
 window.dataLayer=window.dataLayer||[];
 // Basic Consent Mode: do not request GTM until ConsentEase grants analytics_storage.
 // The complete ConsentEase snippet above sets defaults synchronously; this bridge observes its later consent updates.
@@ -602,6 +602,7 @@ function renderJrn(){const b=$("sheetBody");const L=lv(),nx=XPT[Math.min(98,L)],
  <dt>Core shards</dt><dd>${S.shards} · power x${1+S.shards}</dd>`:""}
  <dt>Streak</dt><dd>${st?`${icon("flame",2)} ${st} day${st>1?"s":""}`:"No streak yet. Finish today's daily."}</dd></dl>
  ${secH("DAILY")}<div class="daily ${D.done?"done":""}"><div>${D.done?"Done for today. New challenge tomorrow.":"Today: <b>"+dailyLabel(D)+"</b>"}</div><div class="bar" role="progressbar" aria-label="Daily progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(1,D.prog/D.target)*100)}"><i style="width:${Math.min(100,D.prog/D.target*100)}%"></i></div><div class="tip">${dailyProgTxt(D)} · reward 300 XP + 200 dirt, more with a streak</div></div>
+ ${secH("EARTH CREW")}<div class="daily"><div><b>Coming after the beta:</b> one Earth that every Digby player digs away together.</div><div class="tip">Try the preview. The crew is simulated and nothing leaves this device.</div><div class="row2"><button class="btn pri" id="crewBtn">Open Earth Crew preview</button></div></div>
  ${secH("SETTINGS")}<div class="set"><span id="sndL">Sound</span><button class="switch" id="sndSw" role="switch" aria-checked="${!S.muted}" aria-labelledby="sndL"><i></i></button></div>
  <div class="set col"><span id="introL">Intro on launch</span><div class="seg" role="radiogroup" aria-labelledby="introL">${["auto","full","off"].map(k=>`<button role="radio" aria-checked="${(S.introPref||"auto")===k}" data-v="${k}">${{auto:"Auto",full:"Always",off:"Off"}[k]}</button>`).join("")}</div>
  <div class="tip">Auto plays the full intro once, then a short sting.</div><div class="row2"><button class="btn sec" id="introPlay">▶ Play intro</button></div></div>
@@ -611,10 +612,11 @@ function renderJrn(){const b=$("sheetBody");const L=lv(),nx=XPT[Math.min(98,L)],
  <div class="row2"><button class="btn sec" id="loadBtn">Load code</button><span id="loadMsg" role="status"></span></div>
  ${S.mm>=CORE?`${secH("THE CORE")}<p class="tip">You reached the center of the Earth. Dig again from the surface with a Core Shard: power x${2+(S.shards||0)} forever. Relics and XP level stay.</p><button class="btn pri" id="prestBtn">Dig again with a Core Shard</button>`:""}
  ${secH("DANGER ZONE",1)}<button class="btn ghost" id="resetBtn">Reset all progress</button>
- <p class="foot">Digby v0.6 beta · saves on this device · <a href="privacy.html" target="_blank" rel="noopener">Privacy &amp; cookies</a></p>`;
+ <p class="foot">Digby v0.6.2 beta · saves on this device · <a href="privacy.html" target="_blank" rel="noopener">Privacy &amp; cookies</a></p>`;
  b.querySelectorAll("[data-px]").forEach(h=>px(h,h.dataset.px,2,h.dataset.d?"#ff6b57":"#f5c542"));
  $("sndSw").onclick=e=>{S.muted=!S.muted;e.currentTarget.setAttribute("aria-checked",String(!S.muted));syncSnd();save()};
  b.querySelectorAll(".seg [role=radio]").forEach(r=>r.onclick=()=>{S.introPref=r.dataset.v;save();b.querySelectorAll(".seg [role=radio]").forEach(x=>x.setAttribute("aria-checked",String(x===r)))});
+ $("crewBtn").onclick=()=>{closeSheet();openCrew()};
  $("introPlay").onclick=()=>{closeSheet();offMM=0;DigbyIntro.play("full",Object.assign(introOpts(),{gate:false}),()=>{})};
  $("codeOut").value=exportCode();
  $("copyBtn").onclick=async e=>{const btn=e.currentTarget,t=$("codeOut");t.value=exportCode();let ok=true;try{await navigator.clipboard.writeText(t.value)}catch(_){t.select();try{ok=document.execCommand("copy")}catch(__){ok=false}}btn.textContent=ok?"✔ Copied":"Select the code and copy it";track("save_export");setTimeout(()=>{btn.textContent="Copy save code"},2200)};
@@ -623,6 +625,12 @@ function renderJrn(){const b=$("sheetBody");const L=lv(),nx=XPT[Math.min(98,L)],
   track("save_import");d.jam=null;d.last=Date.now();localStorage.setItem("digby_v01",JSON.stringify(d));location.reload()};
  const pb=$("prestBtn");if(pb)pb.onclick=()=>prestige();
  $("resetBtn").onclick=async()=>{if(await ask({title:"RESET DIGBY?",text:"Depth, XP, dirt, upgrades and relics on this device are deleted. Copy your save code first if you want a backup.",yes:"Reset everything",no:"Keep digging",danger:true})){localStorage.removeItem("digby_v01");location.reload()}}}
+// Earth Crew preview (DEC-119): separate page in an overlay, simulated crew, own save key
+function openCrew(){if($("crewOv"))return;const o=document.createElement("div");o.id="crewOv";o.setAttribute("role","dialog");o.setAttribute("aria-label","Earth Crew preview");
+ o.style.cssText="position:fixed;inset:0;z-index:60;background:#120e14";const f=document.createElement("iframe");f.src="earth-crew.html";f.title="Earth Crew preview";f.style.cssText="border:0;width:100%;height:100%;display:block";
+ o.append(f);document.body.append(o);track("earthcrew_open");setTimeout(()=>{try{f.focus()}catch(_){}},50)}
+function closeCrew(){const o=$("crewOv");if(o){o.remove();save()}}
+addEventListener("message",e=>{if(e.data&&e.data.digby==="earthcrew-close"&&(e.origin===location.origin||e.origin==="null"))closeCrew()});
 // controls
 function syncSnd(){const b=$("snd");b.innerHTML=icon(S.muted?"soundOff":"soundOn",3);b.setAttribute("aria-label",S.muted?"Sound off":"Sound on");b.setAttribute("aria-pressed",String(!S.muted))}
 $("snd").onclick=()=>{S.muted=!S.muted;syncSnd();save();const sw=$("sndSw");if(sw)sw.setAttribute("aria-checked",String(!S.muted))};
